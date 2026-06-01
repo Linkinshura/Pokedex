@@ -10,6 +10,23 @@ const details = document.getElementById("pokemonDetails");
 
 const toast = document.getElementById("toast");
 
+const pokemonCount = document.getElementById("pokemonCount");
+const favoritesCount = document.getElementById("favoritesCount");
+
+function translateStat(stat){
+
+    const stats = {
+        hp: "PS",
+        attack: "Ataque",
+        defense: "Defensa",
+        "special-attack": "Ataque Especial",
+        "special-defense": "Defensa Especial",
+        speed: "Velocidad"
+    };
+
+    return stats[stat] || stat;
+}
+
 const typeTranslations = {
     normal: "Normal",
     fire: "Fuego",
@@ -32,19 +49,16 @@ const typeTranslations = {
 };
 
 const regions = {
-    1: [1, 151],
-    2: [152, 251],
-    3: [252, 386],
-    4: [387, 493],
-    5: [494, 649],
-    6: [650, 721],
-    7: [722, 809],
-    8: [810, 905],
-    9: [906, 1025]
+    1: { name: "Kanto", min: 1, max: 151 },
+    2: { name: "Johto", min: 152, max: 251 },
+    3: { name: "Hoenn", min: 252, max: 386 },
+    4: { name: "Sinnoh", min: 387, max: 493 },
+    5: { name: "Teselia", min: 494, max: 649 },
+    6: { name: "Kalos", min: 650, max: 721 },
+    7: { name: "Alola", min: 722, max: 809 },
+    8: { name: "Galar", min: 810, max: 905 },
+    9: { name: "Paldea", min: 906, max: 1025 }
 };
-
-let offset = 0;
-const limit = 20;
 
 let currentPokemons = [];
 
@@ -53,46 +67,51 @@ async function loadTypes() {
     const data = await res.json();
 
     data.results.forEach(type => {
+        if (!typeTranslations[type.name]) return;
+
         const option = document.createElement("option");
 
         option.value = type.name;
-        option.textContent =
-            typeTranslations[type.name] || type.name;
+        option.textContent = typeTranslations[type.name];
 
         typeFilter.appendChild(option);
     });
 }
 
-async function loadPokemons() {
-    grid.innerHTML = "<h2>Cargando...</h2>";
+async function loadRegionPokemons() {
+    const regionId = regionFilter.value;
 
-    const res = await fetch(
-        `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
-    );
+    if (!regions[regionId]) return;
 
-    const data = await res.json();
+    grid.innerHTML = "<h2>Cargando Pokémon...</h2>";
 
-    currentPokemons = await Promise.all(
-        data.results.map(async pokemon => {
-            const response = await fetch(pokemon.url);
-            return response.json();
-        })
-    );
+    const region = regions[regionId];
+
+    const promises = [];
+
+    for (let id = region.min; id <= region.max; id++) {
+        promises.push(
+            fetch(`https://pokeapi.co/api/v2/pokemon/${id}`)
+                .then(res => res.json())
+        );
+    }
+
+    currentPokemons = await Promise.all(promises);
 
     renderPokemons();
 }
 
 function renderPokemons() {
+
     const term = search.value.toLowerCase();
     const selectedType = typeFilter.value;
-    const selectedRegion = regionFilter.value;
 
     grid.innerHTML = "";
 
-    const filteredPokemons = currentPokemons.filter(pokemon => {
+    const filtered = currentPokemons.filter(pokemon => {
 
-        const matchesName =
-            pokemon.name.includes(term);
+        const matchesSearch =
+            pokemon.name.toLowerCase().includes(term);
 
         const matchesType =
             !selectedType ||
@@ -100,44 +119,46 @@ function renderPokemons() {
                 t => t.type.name === selectedType
             );
 
-        let matchesRegion = true;
-
-        if (selectedRegion) {
-            const [min, max] =
-                regions[selectedRegion];
-
-            matchesRegion =
-                pokemon.id >= min &&
-                pokemon.id <= max;
-        }
-
-        return (
-            matchesName &&
-            matchesType &&
-            matchesRegion
-        );
+        return matchesSearch && matchesType;
     });
 
-    filteredPokemons.forEach(createCard);
+    pokemonCount.textContent =
+        `${filtered.length} Pokémon`;
 
-    if (filteredPokemons.length === 0) {
+    if (!filtered.length) {
+
         grid.innerHTML = `
-            <h2 style="grid-column:1/-1;text-align:center;">
+            <h2 style="
+                grid-column:1/-1;
+                text-align:center;
+            ">
                 No se encontraron Pokémon
             </h2>
         `;
+
+        return;
     }
+
+    filtered.forEach(createPokemonCard);
 }
 
-function createCard(pokemon) {
+function createPokemonCard(pokemon) {
+
     const card = document.createElement("div");
 
     card.className = "card";
 
     card.innerHTML = `
-        <img src="${pokemon.sprites.other["official-artwork"].front_default}" alt="${pokemon.name}">
+        <img
+            src="${pokemon.sprites.other["official-artwork"].front_default}"
+            alt="${pokemon.name}"
+        >
+
         <div class="card-body">
-            <h3>${pokemon.name}</h3>
+
+            <h3>
+                ${pokemon.name}
+            </h3>
 
             <div class="types">
                 ${pokemon.types.map(type => `
@@ -150,6 +171,7 @@ function createCard(pokemon) {
             <button class="favorite-btn">
                 Favorito
             </button>
+
         </div>
     `;
 
@@ -159,37 +181,66 @@ function createCard(pokemon) {
 
     card.querySelector(".favorite-btn")
         .addEventListener("click", e => {
+
             e.stopPropagation();
+
             addFavorite(pokemon);
+
         });
 
     grid.appendChild(card);
 }
 
 function openModal(pokemon) {
+
     details.innerHTML = `
         <h2>${pokemon.name}</h2>
 
         <img
             src="${pokemon.sprites.other["official-artwork"].front_default}"
-            width="250"
             alt="${pokemon.name}"
         >
 
-        <p>Altura: ${pokemon.height}</p>
-        <p>Peso: ${pokemon.weight}</p>
+        <p>
+            <strong>N.º:</strong> ${pokemon.id}
+        </p>
+
+      <p>
+    <strong>Altura:</strong> ${(pokemon.height / 10).toFixed(1)} m
+</p>
+
+<p>
+    <strong>Peso:</strong> ${(pokemon.weight / 10).toFixed(1)} kg
+</p>
+
+        <div class="types" style="justify-content:center;margin:15px 0;">
+            ${pokemon.types.map(type => `
+                <span class="type">
+                    ${typeTranslations[type.type.name] || type.type.name}
+                </span>
+            `).join("")}
+        </div>
 
         <div class="stats">
-            ${pokemon.stats.map(stat => `
-                <p>${stat.stat.name}</p>
 
-                <div class="bar">
-                    <div
-                        class="fill"
-                        style="width:${Math.min(stat.base_stat, 100)}%"
-                    ></div>
-                </div>
-            `).join("")}
+          ${pokemon.stats.map(stat => `
+    <div class="stat-row">
+
+        <div class="stat-header">
+            <span>${translateStat(stat.stat.name)}</span>
+            <span>${stat.base_stat}</span>
+        </div>
+
+        <div class="bar">
+            <div
+                class="fill"
+                style="width:${Math.min((stat.base_stat / 255) * 100, 100)}%"
+            ></div>
+        </div>
+
+    </div>
+`).join("")}
+
         </div>
     `;
 
@@ -199,49 +250,65 @@ function openModal(pokemon) {
 document
     .getElementById("closeModal")
     .addEventListener("click", () => {
+
         modal.style.display = "none";
+
     });
 
 window.addEventListener("click", e => {
+
     if (e.target === modal) {
         modal.style.display = "none";
     }
+
 });
 
 function addFavorite(pokemon) {
+
     let favorites =
         JSON.parse(
             localStorage.getItem("favorites")
         ) || [];
 
-    const exists = favorites.some(
-        p => p.id === pokemon.id
-    );
-
-    if (!exists) {
-        favorites.push(pokemon);
-
-        localStorage.setItem(
-            "favorites",
-            JSON.stringify(favorites)
+    const exists =
+        favorites.some(
+            p => p.id === pokemon.id
         );
 
-        showToast(`${pokemon.name} agregado a favoritos`);
-        renderFavorites();
-    } else {
-        showToast(`${pokemon.name} ya está en favoritos`);
+    if (exists) {
+
+        showToast(
+            `${pokemon.name} ya está en favoritos`
+        );
+
+        return;
     }
+
+    favorites.push(pokemon);
+
+    localStorage.setItem(
+        "favorites",
+        JSON.stringify(favorites)
+    );
+
+    showToast(
+        `${pokemon.name} agregado a favoritos`
+    );
+
+    renderFavorites();
 }
 
 function removeFavorite(id) {
+
     let favorites =
         JSON.parse(
             localStorage.getItem("favorites")
         ) || [];
 
-    favorites = favorites.filter(
-        pokemon => pokemon.id !== id
-    );
+    favorites =
+        favorites.filter(
+            pokemon => pokemon.id !== id
+        );
 
     localStorage.setItem(
         "favorites",
@@ -252,6 +319,7 @@ function removeFavorite(id) {
 }
 
 function renderFavorites() {
+
     const favorites =
         JSON.parse(
             localStorage.getItem("favorites")
@@ -259,12 +327,20 @@ function renderFavorites() {
 
     favoritesGrid.innerHTML = "";
 
-    if (favorites.length === 0) {
+    favoritesCount.textContent =
+        `${favorites.length} Pokémon`;
+
+    if (!favorites.length) {
+
         favoritesGrid.innerHTML = `
-            <h3 style="grid-column:1/-1;text-align:center;">
+            <h3 style="
+                grid-column:1/-1;
+                text-align:center;
+            ">
                 No hay favoritos
             </h3>
         `;
+
         return;
     }
 
@@ -272,35 +348,56 @@ function renderFavorites() {
 }
 
 function createFavoriteCard(pokemon) {
+
     const card = document.createElement("div");
 
     card.className = "card";
 
     card.innerHTML = `
-        <img src="${pokemon.sprites.other["official-artwork"].front_default}" alt="${pokemon.name}">
+        <img
+            src="${pokemon.sprites.other["official-artwork"].front_default}"
+            alt="${pokemon.name}"
+        >
+
         <div class="card-body">
-            <h3>${pokemon.name}</h3>
+
+            <h3>
+                ${pokemon.name}
+            </h3>
 
             <button class="favorite-btn">
                 Quitar
             </button>
+
         </div>
     `;
 
+    card.addEventListener("click", () => {
+        openModal(pokemon);
+    });
+
     card.querySelector(".favorite-btn")
-        .addEventListener("click", () => {
+        .addEventListener("click", e => {
+
+            e.stopPropagation();
+
             removeFavorite(pokemon.id);
+
         });
 
     favoritesGrid.appendChild(card);
 }
 
 function showToast(message) {
+
     toast.textContent = message;
+
     toast.style.opacity = "1";
 
     setTimeout(() => {
+
         toast.style.opacity = "0";
+
     }, 2000);
 }
 
@@ -314,30 +411,13 @@ typeFilter.addEventListener(
     renderPokemons
 );
 
-if (regionFilter) {
-    regionFilter.addEventListener(
-        "change",
-        renderPokemons
-    );
-}
-
-document
-    .getElementById("nextBtn")
-    .addEventListener("click", () => {
-        offset += limit;
-        loadPokemons();
-    });
-
-document
-    .getElementById("prevBtn")
-    .addEventListener("click", () => {
-        if (offset >= limit) {
-            offset -= limit;
-            loadPokemons();
-        }
-    });
+regionFilter.addEventListener(
+    "change",
+    loadRegionPokemons
+);
 
 if (localStorage.getItem("theme") === "dark") {
+
     document.body.classList.add("dark");
 
     document.getElementById("themeBtn")
@@ -364,5 +444,5 @@ document
     });
 
 loadTypes();
-loadPokemons();
+loadRegionPokemons();
 renderFavorites();
