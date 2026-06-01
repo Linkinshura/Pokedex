@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokédex Ultimate</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <h1>Pokédex Ultimate</h1>
+
+        <div class="controls">
+
+            <input
+                type="text"
+                id="search"
+                placeholder="Buscar Pokémon..."
+            >
+
+            <select id="typeFilter">
+                <option value="">Todos los tipos</option>
+            </select>
+
+            <select id="regionFilter">
+                <option value="">Todas las regiones</option>
+                <option value="1">Kanto</option>
+                <option value="2">Johto</option>
+                <option value="3">Hoenn</option>
+                <option value="4">Sinnoh</option>
+                <option value="5">Teselia</option>
+                <option value="6">Kalos</option>
+                <option value="7">Alola</option>
+                <option value="8">Galar</option>
+                <option value="9">Paldea</option>
+            </select>
+
+            <button id="themeBtn">
+                🌙
+            </button>
+
+        </div>
+    </header>
+
+    <main>
+
+        <section>
+
+            <h2>Pokémon</h2>
+
+            <div id="pokemonGrid" class="grid"></div>
+
+            <div class="pagination">
+
+                <button id="prevBtn">
+                    Anterior
+                </button>
+
+                <button id="nextBtn">
+                    Siguiente
+                </button>
+
+            </div>
+
+        </section>
+
+        <section>
+
+            <h2>Favoritos</h2>
+
+            <div id="favoritesGrid" class="grid"></div>
+
+        </section>
+
+    </main>
+
+    <div id="modal" class="modal">
+
+        <div class="modal-content">
+
+            <span id="closeModal">
+                ×
+            </span>
+
+            <div id="pokemonDetails"></div>
+
+        </div>
+
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
